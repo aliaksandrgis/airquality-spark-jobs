@@ -6,8 +6,8 @@ from typing import Iterable
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.streaming import StreamingQuery
 
-from .config import JobConfig, load_job_config
-from .transformations import (
+from jobs.config import JobConfig, load_job_config
+from jobs.transformations import (
     clean_measurements,
     deduplicate_measurements,
     parse_kafka_value,
