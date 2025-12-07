@@ -14,5 +14,11 @@ dist/
 build/
 *.egg-info/
 
+# Runtime artifacts
+bronze/
+spark-warehouse/
+jars/
+
 # Env
 .env
+scripts/with-env.ps1
