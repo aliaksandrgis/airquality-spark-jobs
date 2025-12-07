@@ -73,6 +73,32 @@ spark-submit \
 3. Store Kafka/Supabase/R2 secrets inside Databricks secret scopes and wire them via job environment variables.
 4. Add org.postgresql:postgresql:42.7.1 and org.apache.hadoop:hadoop-aws:3.3.4 as cluster libraries when targeting Cloudflare R2.
 
+## Docker image
+Для публичного GitHub репозитория добавлен Dockerfile, который сворачивает готовое окружение Spark 3.5.0:
+
+```bash
+docker build -t airquality-spark-job .
+
+docker run --rm \
+  -e KAFKA_BOOTSTRAP=pkc-xxxx.us-east-1.aws.confluent.cloud:9092 \
+  -e KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+  -e KAFKA_SASL_MECHANISM=PLAIN \
+  -e KAFKA_SASL_USERNAME=... \
+  -e KAFKA_SASL_PASSWORD=... \
+  -e SUPABASE_JDBC_URL=jdbc:postgresql://... \
+  -e SUPABASE_USER=... \
+  -e SUPABASE_PASSWORD=... \
+  -e BRONZE_PATH=s3a://air-quality-bronze/measurements \
+  -e BRONZE_CHECKPOINT_PATH=s3a://air-quality-bronze/_chk/bronze \
+  -e SUPABASE_CHECKPOINT_PATH=s3a://air-quality-bronze/_chk/supabase \
+  -e R2_ENDPOINT_URL=https://<account>.r2.cloudflarestorage.com \
+  -e R2_ACCESS_KEY_ID=... \
+  -e R2_SECRET_ACCESS_KEY=... \
+  airquality-spark-job
+```
+
+EntryPoint уже вызывает `spark-submit --packages org.postgresql:postgresql:42.7.1,org.apache.hadoop:hadoop-aws:3.3.4 jobs/live_measurements.py`, поэтому достаточно передать переменные окружения (можно переопределить `CMD`, если нужны дополнительные аргументы).
+
 ### Supabase table hint
 `sql
 CREATE TABLE IF NOT EXISTS public.measurements_curated (
