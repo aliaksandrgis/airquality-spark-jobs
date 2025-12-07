@@ -1,0 +1,50 @@
+{
+  "name": "airquality-live-measurements",
+  "tasks": [
+    {
+      "task_key": "live-measurements",
+      "new_cluster": {
+        "spark_version": "13.3.x-scala2.12",
+        "node_type_id": "Standard_DS3_v2",
+        "num_workers": 1,
+        "spark_conf": {
+          "spark.databricks.delta.preview.enabled": "true",
+          "spark.sql.shuffle.partitions": "64"
+        }
+      },
+      "spark_python_task": {
+        "python_file": "dbfs:/FileStore/airquality/jobs/live_measurements.py"
+      },
+      "libraries": [
+        {
+          "maven": {
+            "coordinates": "org.postgresql:postgresql:42.7.1"
+          }
+        },
+        {
+          "maven": {
+            "coordinates": "org.apache.hadoop:hadoop-aws:3.3.4"
+          }
+        }
+      ],
+      "environment_variables": {
+        "KAFKA_BOOTSTRAP": "{{secrets/airquality/kafka_bootstrap}}",
+        "KAFKA_SECURITY_PROTOCOL": "{{secrets/airquality/kafka_security_protocol}}",
+        "KAFKA_SASL_USERNAME": "{{secrets/airquality/kafka_api_key}}",
+        "KAFKA_SASL_PASSWORD": "{{secrets/airquality/kafka_api_secret}}",
+        "KAFKA_SASL_MECHANISM": "PLAIN",
+        "BRONZE_PATH": "s3a://air-quality-bronze/measurements",
+        "BRONZE_CHECKPOINT_PATH": "s3a://air-quality-bronze/_checkpoints/bronze",
+        "SUPABASE_CHECKPOINT_PATH": "s3a://air-quality-bronze/_checkpoints/supabase",
+        "SUPABASE_JDBC_URL": "{{secrets/airquality/supabase_jdbc_url}}",
+        "SUPABASE_USER": "{{secrets/airquality/supabase_user}}",
+        "SUPABASE_PASSWORD": "{{secrets/airquality/supabase_password}}",
+        "R2_ENDPOINT_URL": "{{secrets/airquality/r2_endpoint}}",
+        "R2_ACCESS_KEY_ID": "{{secrets/airquality/r2_access_key}}",
+        "R2_SECRET_ACCESS_KEY": "{{secrets/airquality/r2_secret}}",
+        "DEDUP_WATERMARK_MINUTES": "180",
+        "BRONZE_TRIGGER_SECONDS": "60"
+      }
+    }
+  ]
+}
