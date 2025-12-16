@@ -5,6 +5,9 @@ from typing import Iterable
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.streaming import StreamingQuery
+from urllib.parse import urlparse, parse_qsl
+
+import psycopg
 
 from jobs.config import JobConfig, load_job_config
 from jobs.transformations import (
@@ -100,18 +103,58 @@ def _write_batch_to_supabase(batch_df: DataFrame, config: JobConfig, batch_id: i
         return
     rows = batch_df.count()
     LOGGER.info("Writing %s curated rows to Supabase for batch %s", rows, batch_id)
-    (
-        batch_df.select(*SUPABASE_COLUMNS)
-        .write.format("jdbc")
-        .option("url", config.supabase_jdbc_url)
-        .option("dbtable", config.supabase_table)
-        .option("user", config.supabase_user)
-        .option("password", config.supabase_password)
-        .option("driver", "org.postgresql.Driver")
-        .option("batchsize", str(config.supabase_batch_size))
-        .mode("append")
-        .save()
+    records = []
+    for row in batch_df.select(*SUPABASE_COLUMNS).toLocalIterator():
+        records.append(
+            (
+                row.station_id,
+                row.pollutant,
+                row.value,
+                row.unit,
+                row.country,
+                row.city,
+                row.location_name,
+                row.lat,
+                row.lon,
+                row.observed_at,
+                row.source,
+                row.ingested_at,
+            )
+        )
+    if not records:
+        return
+
+    parsed = urlparse(config.supabase_jdbc_url.replace("jdbc:", "", 1))
+    ssl_params = dict(parse_qsl(parsed.query))
+    conn = psycopg.connect(
+        host=parsed.hostname,
+        port=parsed.port or 5432,
+        dbname=(parsed.path or "/").lstrip("/"),
+        user=config.supabase_user,
+        password=config.supabase_password,
+        **ssl_params,
     )
+    insert_sql = f"""
+        INSERT INTO {config.supabase_table} (
+            station_id, pollutant, value, unit, country, city,
+            location_name, lat, lon, observed_at, source, ingested_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (station_id, pollutant, observed_at)
+        DO UPDATE SET
+            value = EXCLUDED.value,
+            unit = EXCLUDED.unit,
+            country = EXCLUDED.country,
+            city = EXCLUDED.city,
+            location_name = EXCLUDED.location_name,
+            lat = EXCLUDED.lat,
+            lon = EXCLUDED.lon,
+            source = EXCLUDED.source,
+            ingested_at = EXCLUDED.ingested_at
+    """
+    with conn:
+        with conn.cursor() as cur:
+            cur.executemany(insert_sql, records)
 
 
 def run() -> None:
